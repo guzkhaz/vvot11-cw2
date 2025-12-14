@@ -1,0 +1,81 @@
+openapi: 3.0.0
+info:
+  title: Documents Processing API
+  version: 1.0.0
+  description: API для асинхронной обработки документов
+
+paths:
+  /upload:
+    post:
+      summary: Загрузить документ из внешнего URL
+      x-yc-apigateway-integration:
+        type: cloud_ymq
+        action: SendMessage
+        queue_url: ${queue_url}
+        folder_id: ${folder_id}
+        delay_seconds: 0
+        payload_format_type: body
+        service_account_id: ${service_account_id}
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                url:
+                  type: string
+                  format: uri
+      responses:
+        '202':
+          description: Документ принят в обработку
+    
+  /documents:
+    get:
+      summary: Получить список документов
+      x-yc-apigateway-integration:
+        payload_format_version: '0.1'
+        function_id: ${function_id}
+        tag: $latest
+        type: cloud_functions
+        service_account_id: ${service_account_id}
+      responses:
+        '200':
+          description: Список документов
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id:
+                      type: string
+                    name:
+                      type: string
+                    url:
+                      type: string
+      
+  /documents/{key}:
+    get:
+      summary: Скачать документ по ID
+      parameters:
+        - name: key
+          in: path
+          required: true
+          schema:
+            type: string
+      x-yc-apigateway-integration:
+        type: object_storage
+        bucket: ${bucket_name}
+        object: docs/{key}
+        service_account_id: ${service_account_id}
+      responses:
+        '200':
+          description: Файл документа
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
